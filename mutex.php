@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../src/Util/Swoole/Utils.php';
 use Swoole\Coroutine;
 use SneakyStu\Util\Swoole;
 
+ini_set("swoole.enable_preemptive_scheduler", "1");
 \Swoole\Runtime::enableCoroutine(SWOOLE_HOOK_ALL);
 
 // https://eli.thegreenplace.net/2019/implementing-reader-writer-locks/
@@ -121,7 +122,7 @@ Co\run(function() {
       print '+ ADD'.PHP_EOL;
       $sharedData->lock->unlock();
       //print "UNLOCKED\n";
-      \Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+      //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
     }
     $wg->done();
   });
@@ -135,7 +136,7 @@ Co\run(function() {
       $sharedData->data = [];
       print '+ WIPE'.PHP_EOL;
       $sharedData->lock->unlock();
-      \Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+      //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
     }
     $wg->done();
   });
@@ -148,27 +149,37 @@ Co\run(function() {
       while (microtime(true) < $stopAt) {
         $sharedData->lock->lock();
         print "- Reader#{$i}".PHP_EOL;
-        $counter++;
+        $counter[$i-1]++;
         $sharedDataLength = count($sharedData->data);
         $sharedDataLength2 = count($sharedData->data);
         if ($sharedDataLength != $sharedDataLength2) {
           print "!!!!!!!!!!!!!!!!!!!!!!!   race detected   !!!!!!!!!!!!!!!!!!!!\n";
         }
         $sharedData->lock->unlock();
-        \Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+        //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
       }
       $wg->done();
     });
   };
 
   $t0 = microtime(true);
-  $counter = 0;
+  $counter = [];
   foreach (range(1,5) as $i) {
+    $counter[] = 0;
     $spawnReaderF($i, $sharedData, $counter, $wg);
   }
   $wg->wait();
+
   $t = microtime(true) - $t0;
-  $tps = $counter/$t;
+  print "Elapsed Time: {$t}s\n";
+
+  $totalReadCount = array_sum($counter);
+  print "Total Reads: {$totalReadCount}\n";
+
+  print "Reads per goroutine:\n";
+  print_r($counter);
+
+  $tps = $totalReadCount/$t;
   print "\nTPS: {$tps}/s\n";
 
 });
