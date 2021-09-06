@@ -112,7 +112,11 @@ Co\run(function() {
   $wg = new \Swoole\Coroutine\WaitGroup;
 
   // one function is constantly adding data
-  go(function() use ($sharedData, $wg) {
+  $writeCounter = [
+    'add'  => 0,
+    'wipe' => 0
+  ];
+  go(function() use ($sharedData, $wg, &$writeCounter) {
     $wg->add();
     $stopAt = microtime(true) + RUN_FOR_SECONDS;
     while (microtime(true) < $stopAt) {
@@ -120,6 +124,7 @@ Co\run(function() {
       $sharedData->lock->lock();
       $sharedData->data[] = rand(1,1000);
       print '+ ADD'.PHP_EOL;
+      $writeCounter['add']++;
       $sharedData->lock->unlock();
       //print "UNLOCKED\n";
       //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
@@ -128,13 +133,14 @@ Co\run(function() {
   });
 
   // one function is constantly wiping all data
-  go(function() use ($sharedData, $wg) {
+  go(function() use ($sharedData, $wg, &$writeCounter) {
     $wg->add();
     $stopAt = microtime(true) + RUN_FOR_SECONDS;
     while (microtime(true) < $stopAt) {
       $sharedData->lock->lock();
       $sharedData->data = [];
       print '+ WIPE'.PHP_EOL;
+      $writeCounter['wipe']++;
       $sharedData->lock->unlock();
       //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
     }
@@ -176,10 +182,20 @@ Co\run(function() {
   $totalReadCount = array_sum($counter);
   print "Total Reads: {$totalReadCount}\n";
 
-  print "Reads per goroutine:\n";
+  print "Reads per reader:\n";
   print_r($counter);
 
-  $tps = $totalReadCount/$t;
+  $totalWriteCount = array_sum($writeCounter);
+  print "Total Writes: {$totalWriteCount}\n";
+
+  print "Writes per writer:\n";
+  print_r($writeCounter);
+
+  $tps = ($totalReadCount+$totalWriteCount)/$t;
+  $rtps = $totalReadCount/$t;
+  $wtps = $totalWriteCount/$t;
   print "\nTPS: {$tps}/s\n";
+  print "\nReads: {$rtps}/s\n";
+  print "\nWrites: {$wtps}/s\n";
 
 });
