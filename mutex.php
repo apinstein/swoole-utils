@@ -6,8 +6,13 @@ require_once __DIR__ . '/../../src/Util/Swoole/Utils.php';
 use Swoole\Coroutine;
 use SneakyStu\Util\Swoole;
 
-ini_set("swoole.enable_preemptive_scheduler", "1");
 \Swoole\Runtime::enableCoroutine(SWOOLE_HOOK_ALL);
+
+/***
+ * Notes
+ * - time_nanosleep() to yield to other coroutines is far more "balanced" than \Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+ * - Swoole docs recommend using system sleep calls when SLEEP is hooked.
+ */
 
 // https://eli.thegreenplace.net/2019/implementing-reader-writer-locks/
 Interface IMutex {
@@ -127,7 +132,7 @@ Co\run(function() {
       $writeCounter['add']++;
       $sharedData->lock->unlock();
       //print "UNLOCKED\n";
-      //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+      time_nanosleep(0,1);
     }
     $wg->done();
   });
@@ -142,7 +147,7 @@ Co\run(function() {
       print '+ WIPE'.PHP_EOL;
       $writeCounter['wipe']++;
       $sharedData->lock->unlock();
-      //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+      time_nanosleep(0,1);
     }
     $wg->done();
   });
@@ -162,7 +167,7 @@ Co\run(function() {
           print "!!!!!!!!!!!!!!!!!!!!!!!   race detected   !!!!!!!!!!!!!!!!!!!!\n";
         }
         $sharedData->lock->unlock();
-        //\Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
+        time_nanosleep(0,1);
       }
       $wg->done();
     });
@@ -191,11 +196,12 @@ Co\run(function() {
   print "Writes per writer:\n";
   print_r($writeCounter);
 
-  $tps = ($totalReadCount+$totalWriteCount)/$t;
-  $rtps = $totalReadCount/$t;
-  $wtps = $totalWriteCount/$t;
-  print "\nTPS: {$tps}/s\n";
-  print "\nReads: {$rtps}/s\n";
-  print "\nWrites: {$wtps}/s\n";
+  $tps = (int) (($totalReadCount+$totalWriteCount)/$t);
+  $rtps = (int) ($totalReadCount/$t);
+  $wtps = (int) ($totalWriteCount/$t);
+  print "\n";
+  print "Reads: {$rtps}/s\n";
+  print "Writes: {$wtps}/s\n";
+  print "TPS: {$tps}/s\n";
 
 });
