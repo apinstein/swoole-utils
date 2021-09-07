@@ -1,0 +1,19 @@
+{
+    "name": "apinstein/swoole-utils",
+        "description": "A collection of utilities for building concurrent PHP applications with Swoole.",
+        "type": "library",
+        "license": "MIT",
+        "authors": [
+            {
+                "name": "Alan Pinstein",
+                "email": "apinstein@mac.com"
+            }
+        ],
+        "require": {
+            "php": ">=8.0.0",
+            "ext-swoole": ">=4.6.4"
+        },
+        "require-dev": {
+            "phpunit/phpunit": "^9"
+        }
+}
