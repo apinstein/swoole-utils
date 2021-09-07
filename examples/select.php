@@ -1,10 +1,6 @@
 <?php declare(strict_types=1);
 
-require __DIR__ . '/../../src/bootstrap.php';
-require_once __DIR__ . '/../../src/Util/Swoole/Utils.php';
-
-use Swoole\Coroutine;
-use SneakyStu\Util\Swoole;
+require_once __DIR__ . '/../vendor/autoload.php';
 
 Co\Run(function() {
   $c1 = new \chan(1);
@@ -21,8 +17,8 @@ Co\Run(function() {
 
   while (true) {
     print PHP_EOL.PHP_EOL;
-    $t = new Swoole\TimerChan(.2);
-    $c = Swoole\Utils::chan_select($c1, $c2, $t);
+    $t = new Swoozle\TimerChan(.2);
+    $c = Swoozle\Chan::select($c1, $c2, $t);
     switch (true) {
     case $c->chan === $c1:
       print "[userland.gotSelect] Got c1v: " . var_export($c->value, true) . PHP_EOL;
@@ -31,7 +27,7 @@ Co\Run(function() {
       print "[userland.gotSelect] Got c2v: " . var_export($c->value, true) . PHP_EOL;
       break;
     case $c->chan === $t:
-    case $c->chan === Swoole\Utils::CHAN_SELECT_NONE:
+    case $c->chan === Swoozle\Chan::SELECT_NONE:
       print "[userland.gotSelect] Nothing selected\n";
       break;
     }
