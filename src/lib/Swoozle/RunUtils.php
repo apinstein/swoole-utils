@@ -6,7 +6,9 @@ use Swoole\Coroutine;
 
 class RunUtils {
   protected static array $coroutines = [];
-  public static function registerCoroutine(string $desc) {
+  protected static array $timers = [];
+
+  public static function registerCoroutine(string $desc):void {
     $callerCID = Coroutine::getCid();
     self::$coroutines[$callerCID] = [
       'registeredAt'    => microtime(true),
@@ -23,33 +25,7 @@ class RunUtils {
     }
   }
 
-  public static function watchCoroutines() {
-    $debugTimerId = NULL;
-    $debugTimerId = swoole_timer_tick(1000, function(&$debugTimerId) {
-      $list = Coroutine::list();
-      $thisCID = Coroutine::getCid();
-      $list = array_diff((array) $list, [$thisCID]);
-      sort($list);
-      if (count($list) === 0) {
-        print "[Coroutine debugger] No coroutines running.\n";
-        swoole_timer_clear($debugTimerId);
-      } else {
-        print "[Coroutine debugger] Currently " . count($list) . " coroutines (besides this one):\n";
-        foreach ($list as $cid) {
-          $coInfo = self::$coroutines[$cid] ?? [
-            'registeredAt'  => '(unknown)',
-            'description'   => '(no desc)',
-            'location'      => '(unknown)',
-            'parent'        => '(unknown parent)',
-          ];
-          print "[{$cid}] [parent={$coInfo['parent']}] {$coInfo['description']} @ {$coInfo['location']}, registered at {$coInfo['registeredAt']}" . PHP_EOL;
-        }
-      }
-    });
-  }
-
-  protected static array $timers = [];
-  public static function registerTimer(int $timerId, string $desc) {
+  public static function registerTimer(int $timerId, string $desc):void {
     self::$timers[$timerId] = [
       'description' => $desc,
       'location'    => debug_backtrace()[0]['file'] .':'. debug_backtrace()[0]['line'],
@@ -63,15 +39,38 @@ class RunUtils {
     }
   }
 
-  public static function watchTimers() {
-    $debugTimerId = NULL;
-    $debugTimerId = swoole_timer_tick(1000, function(&$debugTimerId) {
+  public static function watch():void {
+    $coroutineDebugTimerId = NULL;
+    $coroutineDebugTimerId = swoole_timer_tick(1000, function(&$coroutineDebugTimerId) {
+      $list = Coroutine::list();
+      $thisCID = Coroutine::getCid();
+      $list = array_diff((array) $list, [$thisCID]);
+      sort($list);
+      if (count($list) === 0) {
+        print "[Coroutine debugger] No coroutines running.\n";
+        swoole_timer_clear($coroutineDebugTimerId);
+      } else {
+        print "[Coroutine debugger] Currently " . count($list) . " coroutines (besides this one):\n";
+        foreach ($list as $cid) {
+          $coInfo = self::$coroutines[$cid] ?? [
+            'registeredAt'  => '(unknown)',
+            'description'   => '(no desc)',
+            'location'      => '(unknown)',
+            'parent'        => '(unknown parent)',
+          ];
+          print "[{$cid}] [parent={$coInfo['parent']}] {$coInfo['description']} @ {$coInfo['location']}, registered at {$coInfo['registeredAt']}" . PHP_EOL;
+        }
+      }
+    });
+  
+    $timerDebugTimerId = NULL;
+    $timerDebugTimerId = swoole_timer_tick(1000, function(&$timerDebugTimerId) {
       $list = \Swoole\Timer::list();
-      $list = array_diff((array) $list, [$debugTimerId]);
+      $list = array_diff((array) $list, [$timerDebugTimerId]);
       sort($list);
       if (count($list) === 0) {
         print "[Timer debugger] No timers running.\n";
-        swoole_timer_clear($debugTimerId);
+        swoole_timer_clear($timerDebugTimerId);
       } else {
         print "[Timer debugger] Currently " . count($list) . " timers (besides this one):\n";
         foreach ($list as $tid) {

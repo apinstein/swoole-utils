@@ -20,4 +20,7 @@ Co\run(function() {
     go(function() use ($str) {
         print "Go says: {$str} (via use)".PHP_EOL;
     });
+
+    RunUtils::watch();
 });
+
