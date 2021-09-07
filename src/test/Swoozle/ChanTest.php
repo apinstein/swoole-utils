@@ -1,10 +1,10 @@
 <?php declare(strict_types=1);
 
-namespace Swoole\Util;
+namespace Swoozle;
 
 use PHPUnit\Framework\TestCase;
 
-final class UtilTest extends TestCase
+final class ChanTest extends TestCase
 {
   public function testReturnsNonEmptyChannel() {
     $expectedValue = "FOO";
@@ -14,7 +14,7 @@ final class UtilTest extends TestCase
       $c1 = new \chan(0);
       $c1->push("FOO");
 
-      $c = Utils::chan_select($c1);
+      $c = Chan::select($c1);
       $poppedValue = $c->value;
     });
     $this->assertEquals($expectedValue, $poppedValue);
@@ -27,7 +27,7 @@ final class UtilTest extends TestCase
     \Co\run(function() use (&$result) {
       $c1 = new \chan(0);
 
-      $result = Utils::chan_select($c1, 0.01);
+      $result = Chan::select($c1, 0.01);
     });
     $this->assertNull($result->chan);
     $this->assertNull($result->value);
@@ -42,7 +42,7 @@ final class UtilTest extends TestCase
       $c2 = new \chan(0);
       $c1->push("FOO");
 
-      $c = Utils::chan_select($c1, $c2);
+      $c = Chan::select($c1, $c2);
       $poppedValue = $c->value;
     });
     $this->assertEquals($expectedValue, $poppedValue);
@@ -60,9 +60,9 @@ final class UtilTest extends TestCase
       $c1->push("FOO");
       $c2->push("BAR");
 
-      $c = Utils::chan_select($c1, $c2);
+      $c = Chan::select($c1, $c2);
       $poppedValue1 = $c->value;
-      $c = Utils::chan_select($c1, $c2);
+      $c = Chan::select($c1, $c2);
       $poppedValue2 = $c->value;
     });
 
@@ -83,7 +83,7 @@ final class UtilTest extends TestCase
       // https://stackoverflow.com/questions/13666253/breaking-out-of-a-select-statement-when-all-channels-are-closed
       go(function() use ($c1, $c2, &$resultValue) {
         while (true) {
-          $c = Utils::chan_select($c1, $c2);
+          $c = Chan::select($c1, $c2);
           switch (true) {
           case $c->chan === $c1:
             if ($c->chan->errCode === SWOOLE_CHANNEL_CLOSED) {
@@ -137,7 +137,7 @@ final class UtilTest extends TestCase
       $c2 = new \chan(0);
       $c2->push($expectedVal);
       while ($returnedVal !== $expectedVal) {
-        $selectedChan = Utils::chan_select($c1, $c2);
+        $selectedChan = Chan::select($c1, $c2);
         $returnedVal = $selectedChan->value;
       }
     });
@@ -156,7 +156,7 @@ final class UtilTest extends TestCase
         $timeoutChan->close();
       });
 
-      $c = Utils::chan_select($c1, $c2, $timeoutChan);
+      $c = Chan::select($c1, $c2, $timeoutChan);
       $returnedChan = $c->chan;
     });
 
