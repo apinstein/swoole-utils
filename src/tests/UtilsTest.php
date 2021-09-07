@@ -1,13 +1,10 @@
 <?php declare(strict_types=1);
 
-namespace SneakyStu\Util\Swoole;
-
-require_once __DIR__ . '/../../../src/Util/Swoole/Utils.php';
+namespace Swoole\Util;
 
 use PHPUnit\Framework\TestCase;
-use SneakyStu\TestHelper\TestHelper;
 
-final class UtilsTest extends TestCase
+final class UtilTest extends TestCase
 {
   public function testReturnsNonEmptyChannel() {
     $expectedValue = "FOO";

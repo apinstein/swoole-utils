@@ -1,10 +1,9 @@
 <?php declare(strict_types=1);
 
-namespace SneakyStu\Util\Swoole;
-
-use SneakyStu\Util\RunUtils;
+namespace Swoole\Utils;
 
 use Swoole\Coroutine;
+use Swoole\Utils\RunUtils;
 
 class SelectReturn {
   public function __construct(
