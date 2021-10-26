@@ -4,38 +4,23 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use Swoole\Coroutine;
 
-\Swoole\Runtime::enableCoroutine(SWOOLE_HOOK_ALL);
+use Swoozle\Mutex\IMutex;
+use Swoozle\Mutex\Mutex;
+
+Swoole\Coroutine::set([
+  'log_level'  => SWOOLE_LOG_NONE,
+  'hook_flags' => SWOOLE_HOOK_ALL,
+]);
 
 /***
  * Notes
  * - time_nanosleep() to yield to other coroutines is far more "balanced" than \Swoole\Coroutine\System::sleep(Swoole\Utils::TIMEOUT_MIN);
  * - Swoole docs recommend using system sleep calls when SLEEP is hooked.
- *
- * WEIRD: since I changed to time_nanosleep it doesn't trigger the race
  */
-
-// https://eli.thegreenplace.net/2019/implementing-reader-writer-locks/
-Interface IMutex {
-  public function lock():void;
-  public function unlock():void;
-}
 
 class FakeMutex implements IMutex {
   public function lock():void {}
   public function unlock():void {}
-}
-
-class Mutex implements IMutex {
-  private \chan $lock;
-  public function __construct() {
-    $this->lock = new \chan();
-  }
-  public function lock():void {
-    $this->lock->push(true);
-  }
-  public function unlock():void {
-    $this->lock->pop();
-  }
 }
 
 class ReaderCountRWLock {
@@ -102,24 +87,24 @@ class RWMutex implements IMutex {
 }
 
 class SharedData {
-  public array $data = [];
+  public int $value = 0;
   public int $rcount = 0;
   public IMutex $lock;
 
   public function __construct() {
-    $this->lock = new FakeMutex;
+    $this->lock = new Mutex;
   }
 }
 
-define("RUN_FOR_SECONDS", 20000);
+define("RUN_FOR_SECONDS", 2);
 Co\run(function() {
   $sharedData = new SharedData;
   $wg = new \Swoole\Coroutine\WaitGroup;
 
   // one function is constantly adding data
   $writeCounter = [
-    'add'  => 0,
-    'wipe' => 0
+    'set1' => 0,
+    'set2' => 0
   ];
   go(function() use ($sharedData, $wg, &$writeCounter) {
     $wg->add();
@@ -127,13 +112,12 @@ Co\run(function() {
     while (microtime(true) < $stopAt) {
       //print "WAITING TO ADD\n";
       $sharedData->lock->lock();
-      $sharedData->data[] = rand(1,1000);
-      print '+ ADD'.PHP_EOL;
-      $writeCounter['add']++;
+      $sharedData->value = rand(1,1000);
+      //print '+ SET 1'.PHP_EOL;
+      $writeCounter['set1']++;
       $sharedData->lock->unlock();
       //print "UNLOCKED\n";
-      //time_nanosleep(0,100);
-      \Swoole\Coroutine\System::sleep(0.001);
+      time_nanosleep(0,1);
     }
     $wg->done();
   });
@@ -144,33 +128,34 @@ Co\run(function() {
     $stopAt = microtime(true) + RUN_FOR_SECONDS;
     while (microtime(true) < $stopAt) {
       $sharedData->lock->lock();
-      $sharedData->data = [];
-      print '+ WIPE'.PHP_EOL;
-      $writeCounter['wipe']++;
+      $sharedData->value = rand(1,1000);
+      //print '+ SET 2'.PHP_EOL;
+      $writeCounter['set2']++;
       $sharedData->lock->unlock();
-      //time_nanosleep(0,100);
-      \Swoole\Coroutine\System::sleep(0.001);
+      time_nanosleep(0,1);
+      password_hash("foo", PASSWORD_BCRYPT, ['cost'=>4]);
     }
     $wg->done();
   });
 
   // one function is constantly using the data and subject to the races
-  $spawnReaderF = function($i, $sharedData, &$counter, $wg) {
-    go(function() use ($i, $sharedData, &$counter, $wg) {
+  $spawnReaderF = function($i, $sharedData, &$counter, $wg, &$raceDetectedCount) {
+    go(function() use ($i, $sharedData, &$counter, $wg, &$raceDetectedCount) {
       $wg->add();
       $stopAt = microtime(true) + RUN_FOR_SECONDS;
       while (microtime(true) < $stopAt) {
         $sharedData->lock->lock();
-        print "- Reader#{$i}".PHP_EOL;
+        //print "- Reader#{$i}".PHP_EOL;
         $counter[$i-1]++;
-        $sharedDataLength = count($sharedData->data);
-        \Swoole\Coroutine\System::sleep(0.2);
-        $sharedDataLength2 = count($sharedData->data);
-        if ($sharedDataLength != $sharedDataLength2) {
+        $preSleepValue = $sharedData->value;
+        time_nanosleep(0,1);
+        $postSleepValue = $sharedData->value;
+        //print ">> {$preSleepValue} {$postSleepValue}\n";
+        if ($preSleepValue !== $postSleepValue) {
           print "!!!!!!!!!!!!!!!!!!!!!!!   race detected   !!!!!!!!!!!!!!!!!!!!\n";
+          $raceDetectedCount++; // ironically has race, but it's ok for this test
         }
         $sharedData->lock->unlock();
-        time_nanosleep(0,1);
       }
       $wg->done();
     });
@@ -178,14 +163,17 @@ Co\run(function() {
 
   $t0 = microtime(true);
   $counter = [];
-  foreach (range(1,5) as $i) {
+  $raceDetectedCount = 0;
+  foreach (range(1,10) as $i) {
     $counter[] = 0;
-    $spawnReaderF($i, $sharedData, $counter, $wg);
+    $spawnReaderF($i, $sharedData, $counter, $wg, $raceDetectedCount);
   }
   $wg->wait();
 
   $t = microtime(true) - $t0;
   print "Elapsed Time: {$t}s\n";
+
+  print "Races detected: {$raceDetectedCount}\n";
 
   $totalReadCount = array_sum($counter);
   print "Total Reads: {$totalReadCount}\n";
