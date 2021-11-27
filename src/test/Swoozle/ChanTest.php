@@ -11,7 +11,7 @@ final class ChanTest extends TestCase
     $poppedValue = NULL;
 
     \Co\run(function() use (&$poppedValue) {
-      $c1 = new \chan(0);
+      $c1 = new \chan();
       $c1->push("FOO");
 
       $c = Chan::select($c1);
@@ -25,7 +25,7 @@ final class ChanTest extends TestCase
     $result = NULL;
 
     \Co\run(function() use (&$result) {
-      $c1 = new \chan(0);
+      $c1 = new \chan();
 
       $result = Chan::select($c1, 0.01);
     });
@@ -38,8 +38,8 @@ final class ChanTest extends TestCase
     $poppedValue = NULL;
 
     \Co\run(function() use (&$poppedValue) {
-      $c1 = new \chan(0);
-      $c2 = new \chan(0);
+      $c1 = new \chan();
+      $c2 = new \chan();
       $c1->push("FOO");
 
       $c = Chan::select($c1, $c2);
@@ -55,8 +55,8 @@ final class ChanTest extends TestCase
     $poppedValue2 = NULL;
 
     \Co\run(function() use (&$poppedValue1, &$poppedValue2) {
-      $c1 = new \chan(0);
-      $c2 = new \chan(0);
+      $c1 = new \chan();
+      $c2 = new \chan();
       $c1->push("FOO");
       $c2->push("BAR");
 
@@ -77,8 +77,8 @@ final class ChanTest extends TestCase
     $resultValue = NULL;
 
     \Co\run(function() use (&$resultValue, $expectedValue) {
-      $c1 = new \chan(0);
-      $c2 = new \chan(0);
+      $c1 = new \chan();
+      $c2 = new \chan();
 
       // https://stackoverflow.com/questions/13666253/breaking-out-of-a-select-statement-when-all-channels-are-closed
       go(function() use ($c1, $c2, &$resultValue) {
@@ -132,9 +132,9 @@ final class ChanTest extends TestCase
     $returnedVal = "wrong answer";
 
     \Co\run(function() use (&$expectedVal, &$returnedVal) {
-      $c1 = new \chan(0);
+      $c1 = new \chan();
       $c1->close();
-      $c2 = new \chan(0);
+      $c2 = new \chan();
       $c2->push($expectedVal);
       while ($returnedVal !== $expectedVal) {
         $selectedChan = Chan::select($c1, $c2);
@@ -145,11 +145,11 @@ final class ChanTest extends TestCase
   }
 
   public function testHandlesTimeout() {
-    $timeoutChan = new \chan(0);
+    $timeoutChan = new \chan();
     $returnedChan = NULL;
     \Co\run(function() use (&$returnedChan, $timeoutChan) {
-      $c1 = new \chan(0);
-      $c2 = new \chan(0);
+      $c1 = new \chan();
+      $c2 = new \chan();
 
       go(function() use ($timeoutChan) {
         \Swoole\Coroutine\System::sleep(0.2);
